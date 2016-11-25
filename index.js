@@ -51,8 +51,8 @@ oplog.events = {
  * @api public
  */
 
-oplog.create = function create(conn, options) {
-  return Object.create(this).init(conn, options);
+oplog.create = function create(conn, options, db) {
+  return Object.create(this).init(conn, options, db);
 };
 
 /**
@@ -64,7 +64,7 @@ oplog.create = function create(conn, options) {
  * @api private
  */
 
-oplog.init = function init(conn, options) {
+oplog.init = function init(conn, options, db) {
   var ctx = this;
   options = options || {};
   this.ns = options.ns;
@@ -73,12 +73,18 @@ oplog.init = function init(conn, options) {
   conn = conn || 'mongodb://127.0.0.1:27017/local';
   this.ready = thunky(function ready(cb) {
     if ('string' === typeof conn) {
-      MongoClient.connect(conn, options, function getDb(err, db) {
-        if (err) return ctx.onerror(err, cb);
-        debug('successfully connected');
-        db = db.db(options.database || 'local');
-        cb(null, ctx.db = db);
-      });
+      if (db) {
+        var dbNew = db.db(options.database || 'local');
+        cb(null, ctx.db = dbNew);
+      }
+      else {
+        MongoClient.connect(conn, options, function getDb(err, db) {
+          if (err) return ctx.onerror(err, cb);
+          debug('successfully connected');
+          db = db.db(options.database || 'local');
+          cb(null, ctx.db = db);
+        });
+      }
     } else {
       if (conn && conn.collection) return cb(null, ctx.db = conn);
       ctx.onerror(new Error('Invalid mongo connection.'), cb);
@@ -243,6 +249,6 @@ oplog.onerror = function onerror(err, fn) {
  * @api public
  */
 
-module.exports = function createOplog(conn, options) {
-  return oplog.create(conn, options);
+module.exports = function createOplog(conn, options, db) {
+  return oplog.create(conn, options, db);
 };
